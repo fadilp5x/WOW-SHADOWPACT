@@ -1,36 +1,81 @@
 # SHADOWPACT
 
-A complete Three.js web app where the policy analysis drives each articulated claw and the evidence below the scene. The person stands on the left. The giant crowned computer stands on the right.
+**Ready for Netlify from this GitHub repository.** A cinematic Three.js scene turns an app's official privacy policy into physical robot claws. Live scan stages, sound, example app bubbles and practical release lessons are included.
 
-## Run
+## Deploy on Netlify
 
-Node 24 or later:
+1. In Netlify, choose **Add new project > Import an existing project > GitHub**.
+2. Select **fadilp5x/WOW-SHADOWPACT** and the **main** branch.
+3. The included `netlify.toml` supplies these settings automatically:
+
+   | Setting | Value |
+   | --- | --- |
+   | Base directory | Leave blank |
+   | Build command | `npm run build` |
+   | Publish directory | `dist/client` |
+   | Functions directory | `netlify/functions` |
+   | Node.js | `24` |
+
+4. Before deploying, add `TINYFISH_API_KEY` in the project's **Environment variables** settings. Use your TinyFish key as the value. Include the **Functions** scope if Netlify offers scope selection, and the Production deploy context. Do not prefix the name with `VITE_`.
+5. Choose **Deploy**. Open the site and enter `Instagram` or `instagram.com` to test a live scan.
+
+Use Git-connected deployment. Uploading only `dist/client` through Netlify Drop does not deploy the API functions.
+
+No Netlify API token or separate AI API key is required. No credentials are committed to this repository. After changing a runtime secret, redeploy so the Edge Function receives the updated value.
+
+## Environment variables
+
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `TINYFISH_API_KEY` | Yes for live scans | Finds and extracts official policy pages. |
+| `FIREBASE_SERVICE_ACCOUNT` | Optional | Complete Firebase service-account JSON for Firestore, with Firestore/Datastore User IAM access. |
+
+Leave Firebase unset to use the working seven-day browser cache. For Firestore, enable a database in your Firebase project and set `FIREBASE_SERVICE_ACCOUNT` as a server secret. Its JSON includes the project ID and private key; paste the JSON as a single value with its escaped newline sequences intact. The server refreshes its OAuth access token automatically. The private key must never go in browser code or a `VITE_` variable.
+
+Advanced Firebase alternatives are documented in `.env.example`: a public Firebase config plus a trusted server `FIREBASE_AUTH_TOKEN` can be used instead of a service account. Firebase-token writes require the `shadowpactServer` custom claim and the supplied `firestore.rules`. A web API key alone does not authorize cache writes. Service-account access uses IAM.
+
+## Run locally
+
+Use Node.js 24. Copy `.env.example` to `.env`, set `TINYFISH_API_KEY`, then run:
 
 ```sh
-npm install
-TINYFISH_API_KEY=your-key npm run dev
+npm ci
+npm run dev
 ```
 
-For a local shell, set the key securely through your environment. Never commit it. Production uses a private server binding named `TINYFISH_API_KEY`. The browser never receives the key.
+Local development loads `.env` on the server. No shell-specific environment-variable assignment is required, so these commands also work on Windows. Restart the development server after changing `.env`.
 
-`npm run build` produces the browser build in `dist/client` and a portable Cloudflare Worker in `dist/server/index.js`. The Worker contains all static assets, including the actual CC0 character model. It serves `/api/config` and `/api/analyze` alongside the site.
+```sh
+npm run verify
+```
 
-## Firebase
+This runs the automated tests, builds the browser app, and checks that the real 3D model is present and no server credentials or API source leaked into the published files.
 
-The single `FIREBASE_CONFIG` object is at the top of `src/api.js`. It intentionally has empty demo values because no Firebase project was supplied. Paste your Firebase web config there or set the `FIREBASE_CONFIG` server variable to its JSON value. Alternatively set `FIREBASE_PROJECT_ID` and `FIREBASE_API_KEY`. For server writes, set `FIREBASE_SERVICE_ACCOUNT` to a Firebase service account JSON with Firestore IAM access. The server refreshes its OAuth token automatically. Alternatively set a valid `FIREBASE_AUTH_TOKEN` with the trusted `shadowpactServer` custom claim. Deploy the included `firestore.rules` for Firebase token access. Anonymous sign-in supports authenticated reads only; it does not grant write permission.
+## Netlify architecture
 
-Configured Firestore is always checked first, using one document per normalized app name in `apps`. Records include `appName`, `privacyUrl`, `termsUrl`, `rawText`, `sorted`, `exposureScore`, and `fetchedAt`. Cache hits skip TinyFish entirely. With no Firebase project configured, the app explicitly uses a seven-day browser cache. The fallback does not claim to be Firestore. Policies too large for Firestore's document limit remain in browser cache with an explicit reason.
+- `dist/client`: the Vite-built page, styles, JavaScript and CC0 animated character.
+- `netlify/edge-functions/api.js`: `/api/config` and `/api/analyze`. Policy fetches stream genuine progress as they run. No SPA redirect masks these endpoints.
+- `netlify/functions/policy-sort.mjs`: computes the evidence categories and score. It accepts only signed internal calls from the Edge Function, using the existing server secret. No second signing key is required.
+- `src/api.js`: shared policy fetching, Firestore caching and evidence analysis.
 
-## Evidence and animation
+The split keeps long network waits in a streamed Edge response and the text analysis in a regular server function. This avoids putting a whole slow scan inside Netlify's 60-second regular-function limit or running its text analysis within the Edge CPU budget. External sites can still refuse extraction; the UI reports those failures instead of inventing results.
 
-TinyFish's real Search endpoint discovers official policy and terms URLs. Fetch extracts both documents. The evidence sorter applies affirmative collection rules with negation checks, records the source section and full evidence sentence, maps categories to the required eight body targets, and computes a sensitivity, sharing, and clause-based score. It is deterministic, with no LLM service or hidden AI key dependency. The score is a heuristic. Conditional clauses and keyword analysis require human review. A missing category is not evidence that an app does not collect it.
+The UI requests newline-delimited JSON. Each event reports an actual cache, search, extraction, mapping or save stage. Legacy JSON clients receive the final JSON document; errors after response headers have been sent are represented by an `error` field, so clients must check it.
 
-The scene has eight idle robot arms and adds arms if the analysis has more categories. Every `takes` entry becomes exactly one claw. The source quotes, categories, targets and final score all come from the same `sorted` object. Retrieved text is rendered as text, never trusted HTML.
+## Data, evidence and cache
 
-The UI uses the UNSEEN palette, Space Grotesk and Inter, continuous Three.js animation, GSAP performance sequencing, and ScrollTrigger reveals. Reduced-motion preferences shorten the performance and remove ambient motion. Model attribution is in `public/assets/ATTRIBUTION.txt`.
+Every claw and evidence card is generated from the same `sorted.takes` array. The fixed targets are eyes, ears, mouth, head, heart, hands and briefcase, feet, and vault. The source section and evidence sentence stay attached to each finding. The exposure score is a documented heuristic, not a legal assessment. Missing categories do not establish that an app collects no data.
 
-## Interactive scanning and release lessons
+Configured Firestore is checked first. One document per normalized app name is stored in `apps`, with `appName`, `privacyUrl`, `termsUrl`, `rawText`, `sorted`, `exposureScore`, and `fetchedAt`. A cache hit skips TinyFish. The UI distinguishes Firestore and browser caching. Oversized Firestore documents fall back to browser caching with an explanation.
 
-Enter an app name, domain, or public website URL, or choose an example bubble above a character. Website input is normalized to the app or hostname before searching; the server never directly fetches a user-supplied URL. The top loading line and elapsed timer accompany real streamed stages for cache, official-source search, extraction, mapping and saving. Completed and skipped steps are distinguished. JSON clients remain supported; streaming clients request `Accept: application/x-ndjson`.
+## Release lessons and animation
 
-Quiet synthesized capture and release sounds activate after a user gesture. The sound button remembers the mute preference. After the performance, select a red claw or its keyboard-accessible label to open practical iPhone, Android, web and account guidance. The practice button opens and retracts that grip. The boy becomes worried with attached claws and relaxes as they are released. Practice does not change external account permissions or the original policy score. The lesson explicitly explains how to change real settings and handle already-collected data separately.
+The real CC0 Quaternius character uses its bundled animations and a phone-holding pose. The giant computer has at least eight articulated arms. Examples above the characters begin a scan on click. Capture and release sounds start only after a user gesture and can be muted. Reduced-motion preferences are respected.
+
+After the performance, click a claw, use its keyboard-accessible label, or choose a category's action button. Each lesson gives practical iPhone, Android, browser and account guidance. Practice retracts the claw and relaxes the boy's expression. It does not change real account settings, delete collected data, or alter the original policy score. Follow the lesson in the actual app or device to make those changes.
+
+## Other hosting
+
+`npm run build:worker` retains the existing Cloudflare Worker build for the original hosted site. Netlify uses `npm run build`, which needs no Sites account or source-repository credential. The `.openai` metadata is not copied into Netlify's publish directory.
+
+Model attribution: `public/assets/ATTRIBUTION.txt`.

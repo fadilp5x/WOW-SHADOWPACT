@@ -345,7 +345,7 @@ async function analyze({ appName, officialHost }, env, config, progress) {
   } else progress('cache', 'Starting a live scan. Results will be saved in this browser.', 'skipped');
   const docs = await findPolicies(appName, env, officialHost, progress);
   progress('sort', 'Mapping policy evidence to the body.', 'running');
-  const sorted = sortPolicies(docs);
+  const sorted = typeof env.SORT_POLICIES === 'function' ? await env.SORT_POLICIES(docs) : sortPolicies(docs);
   progress('sort', 'Evidence and exposure score are ready.', 'complete');
   const record = { appName, privacyUrl: docs[0].url, termsUrl: docs[1].url, rawText: docs.map(doc => `# ${doc.title}\nSource: ${doc.url}\n\n${doc.text}`).join('\n\n'), sorted, exposureScore: sorted.exposureScore, fetchedAt: new Date().toISOString() };
   if (configured) progress('save', 'Saving the verified analysis.', 'running');

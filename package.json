@@ -1,12 +1,14 @@
 {
   "name": "shadowpact",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_USE_ENV_PROXY=1 vite --host 0.0.0.0",
-    "build": "node build.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "build:worker": "node build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "npm test && npm run build && node scripts/verify-build.mjs"
   },
   "dependencies": {
     "three": "^0.170.0",
@@ -15,5 +17,8 @@
   "devDependencies": {
     "vite": "^6.0.0",
     "esbuild": "^0.24.0"
+  },
+  "engines": {
+    "node": ">=24.0.0 <25"
   }
 }
