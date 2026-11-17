@@ -8,8 +8,8 @@ export const CONFIG = Object.freeze({
 });
 
 // Paste a Firebase web configuration here, or set the FIREBASE_CONFIG runtime
-// variable to its JSON value. Enable Firestore and anonymous Firebase Auth,
-// then use the supplied rules. These public identifiers are not credentials.
+// variable to its JSON value. Server writes require a Firebase service account
+// or a trusted shadowpactServer token. These public identifiers are not secrets.
 export const FIREBASE_CONFIG = Object.freeze({
   apiKey: '',
   authDomain: '',
@@ -30,6 +30,7 @@ const categoryRules = [
   { category: 'Payments & purchases', bodyTarget: 'VAULT', match: /\b(payments?|bank accounts?|credit cards?|debit cards?|card details|transactions?|purchases?|billing)\b/i, sensitivity: 10 },
 ];
 const officialDomains = {
+  meta: ['meta.com', 'facebook.com'],
   instagram: ['instagram.com', 'meta.com', 'facebook.com'], facebook: ['facebook.com', 'meta.com'],
   whatsapp: ['whatsapp.com'], threads: ['threads.com', 'threads.net', 'instagram.com', 'meta.com'],
   tiktok: ['tiktok.com'], snapchat: ['snap.com', 'snapchat.com'], spotify: ['spotify.com'],
@@ -37,7 +38,7 @@ const officialDomains = {
   chrome: ['google.com'], 'google maps': ['google.com'], 'google photos': ['google.com'],
   twitter: ['x.com', 'twitter.com'], x: ['x.com', 'twitter.com'], reddit: ['reddit.com', 'redditinc.com'],
   discord: ['discord.com'], telegram: ['telegram.org'], signal: ['signal.org'],
-  chatgpt: ['openai.com'], openai: ['openai.com'], claude: ['anthropic.com'],
+  chatgpt: ['chatgpt.com', 'openai.com'], openai: ['openai.com'], claude: ['anthropic.com'],
   notion: ['notion.so', 'notion.com'], slack: ['slack.com', 'salesforce.com'],
   zoom: ['zoom.com', 'zoom.us'], linkedin: ['linkedin.com'], pinterest: ['pinterest.com'],
   uber: ['uber.com'], amazon: ['amazon.com'], netflix: ['netflix.com'],
@@ -66,10 +67,41 @@ function firebaseConfig(env) {
 function firebaseConfigured(config) { return !!(config.projectId && (config.apiKey || config.serverAccess)); }
 function cacheId(name) { return encodeURIComponent(name.trim().toLowerCase().replace(/\s+/g, ' ')); }
 function isDomain(host, domain) { return host === domain || host.endsWith('.' + domain); }
-function officialUrl(value, appName) {
+const domainNames = {
+  'instagram.com': 'Instagram', 'facebook.com': 'Facebook', 'meta.com': 'Meta',
+  'whatsapp.com': 'WhatsApp', 'threads.com': 'Threads', 'threads.net': 'Threads',
+  'tiktok.com': 'TikTok', 'snap.com': 'Snapchat', 'snapchat.com': 'Snapchat',
+  'spotify.com': 'Spotify', 'youtube.com': 'YouTube', 'google.com': 'Google',
+  'twitter.com': 'X', 'x.com': 'X', 'reddit.com': 'Reddit', 'redditinc.com': 'Reddit',
+  'discord.com': 'Discord', 'telegram.org': 'Telegram', 'signal.org': 'Signal',
+  'chatgpt.com': 'ChatGPT', 'openai.com': 'ChatGPT', 'anthropic.com': 'Claude', 'notion.so': 'Notion',
+  'notion.com': 'Notion', 'slack.com': 'Slack', 'zoom.com': 'Zoom', 'zoom.us': 'Zoom',
+  'linkedin.com': 'LinkedIn', 'pinterest.com': 'Pinterest', 'uber.com': 'Uber',
+  'amazon.com': 'Amazon', 'netflix.com': 'Netflix', 'duolingo.com': 'Duolingo',
+  'dropbox.com': 'Dropbox', 'strava.com': 'Strava',
+};
+export function normalizeAppInput(value) {
+  const input = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  const invalid = () => new ApiError('Enter an app name or a public website, such as Instagram or instagram.com.', 400, 'INVALID_APP_NAME');
+  if (!input || input.length > 2048 || /[<>\n\r{}\\]/.test(input)) throw invalid();
+  if (/[.:/@\[\]]/.test(input)) {
+    let url;
+    try { url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(input) ? input : 'https://' + input); } catch { throw invalid(); }
+    const host = url.hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, '');
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.port || host.length > 253 || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(host) || /(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid|example)$/.test(host)) throw invalid();
+    const known = Object.entries(domainNames).find(([domain]) => isDomain(host, domain));
+    return known ? { appName: known[1], officialHost: null } : { appName: host, officialHost: host };
+  }
+  if (input.length > 80 || /^(?:localhost|local|internal)$/i.test(input)) throw invalid();
+  const name = input.toLowerCase();
+  const canonical = Object.values(domainNames).find(item => item.toLowerCase() === name);
+  return { appName: canonical || (name === 'twitter' ? 'X' : input), officialHost: null };
+}
+function officialUrl(value, appName, officialHost = null) {
   try {
-    const url = new URL(value); if (url.protocol !== 'https:') return false;
+    const url = new URL(value); if (url.protocol !== 'https:' || url.username || url.password || url.port) return false;
     const host = url.hostname.toLowerCase();
+    if (officialHost) return isDomain(host, officialHost);
     const domains = officialDomains[appName.toLowerCase()];
     if (domains) return domains.some(domain => isDomain(host, domain));
     const slug = appName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -97,11 +129,12 @@ async function tinyfish(url, options, env) {
   }
   return response.json();
 }
-async function searchPolicy(appName, kind, env) {
+async function searchPolicy(appName, kind, env, officialHost) {
   const query = new URLSearchParams({ query: `${appName} official ${kind === 'privacy' ? 'privacy policy' : 'terms of service terms of use'}`, language: 'en', purpose: `Find the current official ${kind} policy published by ${appName}. Exclude articles, old versions and third-party summaries.` });
+  if (officialHost) query.set('include_domains', officialHost);
   const result = await tinyfish(CONFIG.searchEndpoint + '?' + query, {}, env);
   const words = kind === 'privacy' ? /privacy|data policy/i : /terms|conditions|user agreement/i;
-  const found = (result.results || []).filter(item => officialUrl(item.url, appName) && words.test(item.title + ' ' + item.url) && !/before-|archiv|previous|\/version\/|\b201[0-9]\b|\.pdf(?:\?|$)/i.test(item.url))
+  const found = (result.results || []).filter(item => officialUrl(item.url, appName, officialHost) && words.test(item.title + ' ' + item.url) && !/before-|archiv|previous|\/version\/|\b201[0-9]\b|\.pdf(?:\?|$)/i.test(item.url))
     .map(item => ({ ...item, score: (words.test(item.title) ? 6 : 0) + (words.test(new URL(item.url).pathname) ? 4 : 0) - (item.position || 1) / 10 }))
     .sort((a, b) => b.score - a.score).slice(0, 3);
   // Verified canonical Meta destination. Search still runs first; this avoids
@@ -118,21 +151,25 @@ function policyUsable(result, kind) {
   if (kind === 'terms' && /privacy policy|data policy/i.test(firstHeading)) return false;
   return kind === 'privacy' ? /personal (?:information|data)|information we collect|privacy policy/i.test(text) : /terms|agreement|conditions|liability|license/i.test(text);
 }
-async function findPolicies(appName, env) {
-  const [privacyResults, termsResults] = await Promise.all([searchPolicy(appName, 'privacy', env), searchPolicy(appName, 'terms', env)]);
+async function findPolicies(appName, env, officialHost, progress) {
+  progress('search', 'Finding the official privacy policy and terms.', 'running');
+  const [privacyResults, termsResults] = await Promise.all([searchPolicy(appName, 'privacy', env, officialHost), searchPolicy(appName, 'terms', env, officialHost)]);
   if (!privacyResults.length || !termsResults.length) throw new ApiError(`We could not verify both official policies for ${appName}. Try the app's full name. No analysis has been invented.`, 404, 'OFFICIAL_POLICIES_NOT_FOUND');
+  progress('search', 'Found official policy sources.', 'complete');
   const urls = [...new Set([...privacyResults, ...termsResults].map(item => item.url))];
+  progress('extract', 'Reading the official policy pages.', 'running');
   const extracted = await tinyfish(CONFIG.extractEndpoint, { method: 'POST', body: JSON.stringify({ urls, format: 'markdown', links: true, page_metadata: true, ttl: 86400, per_url_timeout_ms: 45000, purpose: `Extract the complete official Privacy Policy and Terms of Service for ${appName}, retaining all policy sections and verbatim clauses.` }) }, env);
   const results = extracted.results || [];
   function select(candidates, kind) {
     for (const candidate of candidates) {
       const result = results.find(item => item.url === candidate.url);
-      if (policyUsable(result, kind) && officialUrl(result.final_url || result.url, appName)) return { title: kind === 'privacy' ? 'Privacy Policy' : 'Terms of Service', url: result.final_url || candidate.url, text: result.text, fetchedTitle: result.title || candidate.title };
+      if (policyUsable(result, kind) && officialUrl(result.final_url || result.url, appName, officialHost)) return { title: kind === 'privacy' ? 'Privacy Policy' : 'Terms of Service', url: result.final_url || candidate.url, text: result.text, fetchedTitle: result.title || candidate.title };
     }
     return null;
   }
   const privacy = select(privacyResults, 'privacy'), terms = select(termsResults, 'terms');
   if (!privacy || !terms) throw new ApiError(`The official ${!privacy ? 'privacy policy' : 'terms'} for ${appName} could not be fully read. The page may block automated access. Try again later or try another app.`, 422, 'POLICY_UNREADABLE');
+  progress('extract', 'Both policies have been read.', 'complete');
   return [privacy, terms];
 }
 
@@ -298,31 +335,77 @@ async function firestoreWrite(record, config, env) {
   const response = await fetch(`https://firestore.googleapis.com/v1/projects/${encodeURIComponent(config.projectId)}/databases/(default)/documents/apps/${cacheId(record.appName)}`, { method: 'PATCH', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(12000) });
   return response.ok ? { saved: true } : { saved: false, reason: 'The analysis is complete, but Firebase did not accept the cache write. Check the apps collection rules.' };
 }
-async function analyze(appName, env, config) {
+async function analyze({ appName, officialHost }, env, config, progress) {
   const configured = firebaseConfigured(config);
   if (configured) {
+    progress('cache', 'Checking for a saved analysis.', 'running');
     const cached = await firestoreRead(appName, config, env);
-    if (cached) return { ...cached, cacheStatus: 'firestore-hit', cacheConfigured: true };
-  }
-  const docs = await findPolicies(appName, env);
+    if (cached) { progress('cache', 'Loaded the saved analysis.', 'complete'); return { ...cached, cacheStatus: 'firestore-hit', cacheConfigured: true }; }
+    progress('cache', 'No saved analysis found. Starting a live scan.', 'complete');
+  } else progress('cache', 'Starting a live scan. Results will be saved in this browser.', 'skipped');
+  const docs = await findPolicies(appName, env, officialHost, progress);
+  progress('sort', 'Mapping policy evidence to the body.', 'running');
   const sorted = sortPolicies(docs);
+  progress('sort', 'Evidence and exposure score are ready.', 'complete');
   const record = { appName, privacyUrl: docs[0].url, termsUrl: docs[1].url, rawText: docs.map(doc => `# ${doc.title}\nSource: ${doc.url}\n\n${doc.text}`).join('\n\n'), sorted, exposureScore: sorted.exposureScore, fetchedAt: new Date().toISOString() };
+  if (configured) progress('save', 'Saving the verified analysis.', 'running');
   const saved = configured ? await firestoreWrite(record, config, env) : { saved: false };
+  progress('save', saved.saved ? 'Analysis saved.' : 'Analysis is ready to save in this browser.', saved.saved ? 'complete' : 'skipped');
   return { ...record, cacheStatus: saved.saved ? 'firestore-saved' : 'browser', cacheConfigured: configured, ...(saved.reason ? { cacheWarning: saved.reason } : {}), analysisNotes: 'Evidence-based keyword analysis of the extracted policies. The score is a heuristic: collection sensitivity up to 62.4 points, sharing up to 22, and restrictive clauses up to 15. No missing category is proof that the app does not collect it.' };
+}
+
+function analysisTask(target, env, config, listener) {
+  const id = target.appName.toLowerCase();
+  let task = inflight.get(id);
+  if (!task) {
+    task = { history: [], listeners: new Set(), promise: null };
+    inflight.set(id, task);
+    if (listener) task.listeners.add(listener);
+    const progress = (stage, message, status) => {
+      const event = { type: 'progress', stage, message, status };
+      task.history.push(event);
+      for (const notify of task.listeners) { try { notify(event); } catch { task.listeners.delete(notify); } }
+    };
+    task.promise = analyze(target, env, config, progress).finally(() => inflight.delete(id));
+  } else if (listener) {
+    for (const event of task.history) listener(event);
+    task.listeners.add(listener);
+  }
+  return task;
+}
+function safeError(error) { return { type: 'error', error: error instanceof ApiError ? error.message : 'Something interrupted the policy analysis. Please try again.', code: error.code || 'ANALYSIS_FAILED' }; }
+function streamingAnalysis(target, env, config) {
+  let task, emit, cancelled = false;
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    start(controller) {
+      emit = event => { if (!cancelled) controller.enqueue(encoder.encode(JSON.stringify(event) + '\n')); };
+      task = analysisTask(target, env, config, emit);
+      task.promise.then(data => emit({ type: 'result', data }), error => emit(safeError(error))).finally(() => {
+        task.listeners.delete(emit);
+        if (!cancelled) controller.close();
+      });
+    },
+    cancel() { cancelled = true; task?.listeners.delete(emit); },
+  });
+  return new Response(body, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store, no-transform', 'x-content-type-options': 'nosniff' } });
 }
 
 export async function handleApi(request, env = {}) {
   const url = new URL(request.url);
+  const streaming = url.pathname === '/api/analyze' && (request.headers.get('accept') || '').includes('application/x-ndjson');
   try {
     const config = firebaseConfig(env);
     if (url.pathname === '/api/config') return json({ liveSearchConfigured: !!env[CONFIG.apiKeyBinding], cacheConfigured: firebaseConfigured(config), cacheProvider: firebaseConfigured(config) ? 'firestore' : 'browser' });
     if (url.pathname !== '/api/analyze') return json({ error: 'Not found.' }, 404);
     if (request.method !== 'POST') return json({ error: 'Use POST to analyze an app.' }, 405);
     let payload; try { payload = await request.json(); } catch { throw new ApiError('Enter an app name to continue.', 400, 'INVALID_REQUEST'); }
-    const appName = typeof payload.appName === 'string' ? payload.appName.trim().replace(/\s+/g, ' ') : '';
-    if (appName.length < 1 || appName.length > 80 || /[<>\n\r{}]|https?:|www\./i.test(appName)) throw new ApiError('Enter an app name, such as Instagram or Spotify, using 1 to 80 characters.', 400, 'INVALID_APP_NAME');
-    const id = appName.toLowerCase();
-    if (!inflight.has(id)) inflight.set(id, analyze(appName, env, config).finally(() => inflight.delete(id)));
-    return json(await inflight.get(id));
-  } catch (error) { return json({ error: error instanceof ApiError ? error.message : 'Something interrupted the policy analysis. Please try again.', code: error.code || 'ANALYSIS_FAILED' }, error.status || 500); }
+    const target = normalizeAppInput(payload.appName);
+    if (streaming) return streamingAnalysis(target, env, config);
+    return json(await analysisTask(target, env, config).promise);
+  } catch (error) {
+    const safe = safeError(error);
+    if (streaming) return new Response(JSON.stringify(safe) + '\n', { status: error.status || 500, headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' } });
+    return json({ error: safe.error, code: safe.code }, error.status || 500);
+  }
 }

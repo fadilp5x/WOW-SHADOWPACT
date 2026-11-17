@@ -4,16 +4,31 @@
 <body>
 <main>
 <section class="stage" id="stage" aria-label="A person faces a giant computer with robotic claws">
-<div id="world" role="img" aria-label="A small boy holds a phone on the left. A giant crowned computer tycoon waits on the right, with eight articulated robot arms."></div>
+<div id="world" role="group" aria-label="A small boy holds a phone on the left. A giant crowned computer tycoon waits on the right, with eight articulated robot arms."></div>
 <div class="grain" aria-hidden="true"></div>
 <form id="app-form" class="app-form" autocomplete="off">
-<div class="input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><label class="sr-only" for="app-name">Enter your app</label><input id="app-name" name="app" placeholder="Enter your app" maxlength="70" required spellcheck="false" aria-describedby="form-status"><button id="analyze" type="submit"><span>SEE WHAT IT TAKES</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+<div class="input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><label class="sr-only" for="app-name">Enter an app or website</label><input id="app-name" name="app" placeholder="Enter an app or website" maxlength="200" required spellcheck="false" aria-describedby="form-status"><button id="analyze" type="submit"><span>SEE WHAT IT TAKES</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+<div class="scan-progress" id="scan-progress" hidden aria-label="Live scan progress">
+<div class="scan-heading"><span class="scan-indicator" aria-hidden="true"></span><span id="scan-message" role="status" aria-live="polite">Checking saved scans</span><time id="scan-elapsed">0s</time></div>
+<ol class="scan-steps"><li data-stage="cache"><span>01</span>Cache</li><li data-stage="search"><span>02</span>Find</li><li data-stage="extract"><span>03</span>Read</li><li data-stage="sort"><span>04</span>Map</li><li data-stage="save"><span>05</span>Save</li></ol>
+</div>
 <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
 </form>
+<div id="loading-line" class="loading-line" hidden aria-hidden="true"></div>
+<div class="example-cloud boy-examples" id="boy-examples" aria-label="Try an app"><span class="example-caption">What about my apps?</span><div class="example-pills"><button type="button" data-app="Instagram">Instagram <span>↗</span></button><button type="button" data-app="Spotify">Spotify <span>↗</span></button><button type="button" data-app="TikTok">TikTok <span>↗</span></button></div><i aria-hidden="true"></i></div>
+<div class="example-cloud tycoon-examples" id="tycoon-examples" aria-label="Try a company"><span class="example-caption">Pick one. See its reach.</span><div class="example-pills"><button type="button" data-app="Google">Google <span>↗</span></button><button type="button" data-app="Amazon">Amazon <span>↗</span></button><button type="button" data-app="ChatGPT">ChatGPT <span>↗</span></button></div><i aria-hidden="true"></i></div>
+<button type="button" id="sound-toggle" class="sound-toggle" aria-pressed="true" aria-label="Turn sound off"><span aria-hidden="true">♪</span><span class="sound-label">Sound on</span></button>
+<div id="release-hint" class="release-hint" hidden><span class="hint-dot" aria-hidden="true"></span><span id="release-message" role="status" aria-live="polite">Tap a red claw to learn how to loosen its grip.</span></div>
 <h1 class="scene-title">You <span class="versus">vs</span> <span class="app-chip" id="title-app">the app<span class="chip-dot" aria-hidden="true"></span></span><span class="title-score" id="title-score" hidden><span id="score-value">0</span><small>/100</small></span></h1>
 <div class="sr-only" id="performance-status" aria-live="polite"></div>
 </section>
 <div id="details" hidden></div>
 </main>
+<dialog id="remedy-dialog" class="remedy-dialog" aria-labelledby="remedy-title" aria-describedby="remedy-intro">
+<button type="button" class="dialog-close" id="close-remedy" aria-label="Close lesson">×</button>
+<div class="lesson-eyebrow" id="remedy-target"></div><h2 id="remedy-title"></h2><p id="remedy-intro"></p>
+<ol class="remedy-steps" id="remedy-steps"></ol><div id="remedy-rights"></div>
+<div class="lesson-actions"><p>Practice here, then change the real settings. Releasing a claw in this scene does not change your account or delete collected data.</p><button type="button" id="practice-release">Practice releasing this claw <span aria-hidden="true">↗</span></button><a id="remedy-source" target="_blank" rel="noopener noreferrer">Read the official policy ↗</a></div>
+</dialog>
 <script type="module" src="/src/main.js"></script>
 </body></html>

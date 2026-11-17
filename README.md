@@ -28,3 +28,9 @@ TinyFish's real Search endpoint discovers official policy and terms URLs. Fetch 
 The scene has eight idle robot arms and adds arms if the analysis has more categories. Every `takes` entry becomes exactly one claw. The source quotes, categories, targets and final score all come from the same `sorted` object. Retrieved text is rendered as text, never trusted HTML.
 
 The UI uses the UNSEEN palette, Space Grotesk and Inter, continuous Three.js animation, GSAP performance sequencing, and ScrollTrigger reveals. Reduced-motion preferences shorten the performance and remove ambient motion. Model attribution is in `public/assets/ATTRIBUTION.txt`.
+
+## Interactive scanning and release lessons
+
+Enter an app name, domain, or public website URL, or choose an example bubble above a character. Website input is normalized to the app or hostname before searching; the server never directly fetches a user-supplied URL. The top loading line and elapsed timer accompany real streamed stages for cache, official-source search, extraction, mapping and saving. Completed and skipped steps are distinguished. JSON clients remain supported; streaming clients request `Accept: application/x-ndjson`.
+
+Quiet synthesized capture and release sounds activate after a user gesture. The sound button remembers the mute preference. After the performance, select a red claw or its keyboard-accessible label to open practical iPhone, Android, web and account guidance. The practice button opens and retracts that grip. The boy becomes worried with attached claws and relaxes as they are released. Practice does not change external account permissions or the original policy score. The lesson explicitly explains how to change real settings and handle already-collected data separately.
