@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Server service accounts use IAM and do not rely on client rules.
+    // Optional Firebase ID tokens must have a trusted shadowpactServer claim.
+    match /apps/{appName} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.token.shadowpactServer == true
+        && request.resource.data.keys().hasAll([
+          'appName', 'privacyUrl', 'termsUrl', 'rawText',
+          'sorted', 'exposureScore', 'fetchedAt'
+        ])
+        && request.resource.data.appName is string
+        && request.resource.data.exposureScore >= 0
+        && request.resource.data.exposureScore <= 100;
+      allow delete: if false;
+    }
+  }
+}

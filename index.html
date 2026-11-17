@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#FAF8F3"><meta name="description" content="A living 3D picture of what an app's privacy policy takes from you. Follow every claw back to the evidence."><title>SHADOWPACT | You vs the app</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%2308090b'/%3E%3Cpath d='M10 25L20 8l-2 13h12L20 33l2-8z' fill='%23cdf22b'/%3E%3C/svg%3E"></head>
+<body>
+<main>
+<section class="stage" id="stage" aria-label="A person faces a giant computer with robotic claws">
+<div id="world" role="img" aria-label="A small boy holds a phone on the left. A giant crowned computer tycoon waits on the right, with eight articulated robot arms."></div>
+<div class="grain" aria-hidden="true"></div>
+<form id="app-form" class="app-form" autocomplete="off">
+<div class="input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><label class="sr-only" for="app-name">Enter your app</label><input id="app-name" name="app" placeholder="Enter your app" maxlength="70" required spellcheck="false" aria-describedby="form-status"><button id="analyze" type="submit"><span>SEE WHAT IT TAKES</span><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+<div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+</form>
+<h1 class="scene-title">You <span class="versus">vs</span> <span class="app-chip" id="title-app">the app<span class="chip-dot" aria-hidden="true"></span></span><span class="title-score" id="title-score" hidden><span id="score-value">0</span><small>/100</small></span></h1>
+<div class="sr-only" id="performance-status" aria-live="polite"></div>
+</section>
+<div id="details" hidden></div>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body></html>
