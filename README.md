@@ -1,5 +1,15 @@
 # SHADOWPACT
 
+"You vs The App." Shows what an app's terms and conditions actually take from a person, with an animated 3D scene.
+
+**Live preview:** https://shadowpact.netlify.app/
+
+**Part of [PROJECT WOW](https://github.com/fadilp5x/PROJECT-WOW)**, the umbrella home of UNSEEN, TIME TAX, EXHAUST and SHADOWPACT.
+
+---
+
+# SHADOWPACT
+
 **Ready for Netlify from this GitHub repository.** A cinematic Three.js scene turns an app's official privacy policy into physical robot claws. Live scan stages, sound, example app bubbles and practical release lessons are included.
 
 ## Deploy on Netlify
